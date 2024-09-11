@@ -1,47 +1,9 @@
+https://raw.githubusercontent.com/Azure-Samples/aks-store-demo/main/aks-store-ingress-quickstart.yaml
+Create AKS cluster
+==================================
+Lab1: Create AKS cluster as following
 
-adv.Kubernetes 
-=============================================================
-Lab 1: Kubernetes Operations(kops) on AWS
-=============================================================
 
-##Task 1: Launching an EC2 Instance
-#create an EC2 Instance
-Ubuntu Server22.04 LTS (HVM), SSD Volume type
-t2.micro
-
-##Task 2: Create an IAM role
-#create an IAM role for your instance as kops-admin-role with AdministratorAccess policy
-
-##Now, attach the IAM kops-admin-role to your EC2 instance kops by following these steps:
-1. First select EC2 instance kops.
-2. Next click on Action > Security > Modify IAM role
-3. Search   for kops-admin role, select it and click Update IAM role
-
-##Task 3: Setting up a Kubernetes Cluster
-
-sudo hostnamectl set-hostname kops
-
-bash
-
-wget https://kops-script.s3.amazonaws.com/kops-v1.25.sh 
-OR create file  vi kops-v1.25.sh  and copy the entire content from the kops-file which is present in the same link.
-
-save the file :wq and run the command chmod 400 kops-v1.25.sh 
-
-. ./kops-v1.25.sh
-
-kops get cluster
-
-kops validate cluster <cluster name>
-
-kubectl get nodes
-
-kops export kubeconfig --admin
-// export KOPS_STATE_STORE=s3://
-
-#For delete your entire cluster 
-=====================================
-example:  kops delete cluster --name=martuj-m1-k8s-2024-06-02-03-06.k8s.local --yes
 
 LAB-2 creating pod
 ================================
@@ -80,8 +42,6 @@ k describe pod nginx-pod
 kubectl api-resources
 k get po -n kube-system
 k delete pod nginx-pod
-k delete pod nginx-pod
-
 ===============================================
 Task-3 ReplicaSet
 ----------------------------
@@ -109,7 +69,7 @@ spec:
         ports:
         - containerPort: 80
 
-kubectl create -f nginx-rs.yaml
+kubectl apply -f nginx-rs.yaml
 kubectl  get pods
 kubectl get pod -l app=nginx
 kubectl get rs nginx-rs -o wide
@@ -295,7 +255,7 @@ spec:
 
 # Apply the pod definition yaml
 
-kubectl create -f httpd-pod.yaml
+kubectl apply -f httpd-pod.yaml
 
 
 # Check the newly created Pod
