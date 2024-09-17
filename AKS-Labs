@@ -9,7 +9,7 @@ LAB-2 creating pod
 ================================
 Task-1  Imperative method
 ----------
- kubectl run test --image=nginx:latest --port 80
+ kubectl run test --image=nginx:latest
 
 kubectl get pod
 alias k=kubectl
@@ -171,6 +171,8 @@ Task 3: Rollback of Deployment
 
 kubectl rollout history deployment/nginx-dep
 
+# add annotaion (An annotation is a key/value pair that can hold larger (compared to a label),)
+kubectl annotate deployment nginx-dep kubernetes.io/change-cause="version change to 1.16.0 to latest" --overwrite=true
 
 #Rollback the Deployment done in the previous task
 
