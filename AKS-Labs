@@ -350,11 +350,9 @@ kubectl get ep
 
  # Get External IPs of the machines in the cluster using below.
 
-kubectl get nodes -owide | awk '{print $7}'
+kubectl get svc -o wide | awk '{print $4}'
 
-  #SSH to one of the machines and rerun the command in the previous task
-
-ssh -t ubuntu@<Node_IP> curl <Cluster_IP>:<Service_Port>
+ # Go to web browser and type the external ip to access the webpage..
 
 
 ------------------------------------------------------------------------------
@@ -548,7 +546,7 @@ spec:
       mountPath: /app
 
 save the file
-kubectl create -f emptydir.yaml
+kubectl apply -f emptydir.yaml
 kubectl get pods
 kubectl get pods -o wide
 #Go insdie the pod and create file in the /app dir
@@ -587,9 +585,9 @@ spec:
       mountPath: /usr/share/nginx/html/
 save the file
 
- kubectl create -f nginxpod.yaml
+ kubectl apply -f nginxpod.yaml
  k get pod
- kubectl expose pod host-pod --port 80 --type NodePort --name host-svc
+ kubectl expose pod host-pod --port 80 --type LoadBalancer --name host-svc
  k get svc
  kubectl describe svc
  # take node ip and port no to access the website
@@ -619,7 +617,7 @@ spec:
       mountPath: /usr/local/apache2/htdocs/
 
 save the file
- kubectl create -f httppod.yaml
+ kubectl apply -f httppod.yaml
  kubectl get pod
  kubectl exec -it httpd-pod  -- bash
  ls 
@@ -633,30 +631,6 @@ kubectl delete pod  host-pod
 kubectl delete pod httpd-pod
 kubectl get pod
 ----------------------------------------------------------------------------
-# Task 1  Get Node Label and Create Custom Index.html on Node
-----------------------------------------------------------------------------
-
-# View worker nodes and their labels
-
-kubectl get nodes --show-labels | grep role=node
-
-
-# make a note of the kubernetes.io/hostname label of one of the nodes
-
-
-# ssh to one of the nodes using below
-
- ssh -t ubuntu@<node_public_IP> 
-
-
-
-# Switch to root and run the following commands. A directory with custom index.html is created for PersistentVolume mount 
-
-sudo su
-mkdir /pvdir
-echo Hello World! > /pvdir/index.html
-
-
 --------------------------------------------------------------------------------
 # Task 3 - Create a Local Persistent Volume
 --------------------------------------------------------------------------------
@@ -704,6 +678,8 @@ spec:
       storage: 1Gi
 
 kubectl apply -f pv-claim.yaml
+kubectl get pvc
+kubectl describe pvc
 ----------------------------------------------------------------------------------------
 # Task 5  - Create nginx Pod with NodeSelector
 ----------------------------------------------------------------------------------------
