@@ -364,9 +364,13 @@ access this application using same service that we create previously.
 some time will to blue deployment web page, some time green webpage
 
 If you delete the web-green deployment, load-balancer will start sending traffic only to the blue pods
-
-
 kubectl describe svc web-app-svc-lb
+ 
+kubectl delete deploy web-blue
+kubectl delete deploy web-green
+kubectl delete svc web-app-svc-lb
+kubectl get svc
+
 =============================================================
 Lab 4: Services in Kubernetes
 =============================================================
