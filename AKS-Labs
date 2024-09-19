@@ -836,3 +836,25 @@ kubectl delete -f pv-claim.yaml
 kubectl delete -f pv-volume.yaml
 =============================================================
 ---------------------------------------------
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: lns
+  name: liveness-pod
+spec:
+  containers:
+  - name: liveness
+    image: busybox
+    args:
+    - /bin/sh
+    - -c
+    - touch /liveness; sleep 6000
+    livenessProbe:
+      exec:
+        command:
+        - cat
+        - /liveness
+      initialDelaySeconds: 5
+      periodSeconds: 5
+
