@@ -835,6 +835,8 @@ kubectl delete -f pv-pod.yaml
 kubectl delete -f pv-claim.yaml
 kubectl delete -f pv-volume.yaml
 =============================================================
+
+Lab: Liveness.Readyness
 ---------------------------------------------
 apiVersion: v1
 kind: Pod
