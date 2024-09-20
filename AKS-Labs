@@ -1038,4 +1038,343 @@ cronjob-hello-27991419-lz69c   0/1     Completed   0          42s
 
 kubectl logs cronjob-hello-27991419-lz69c 
 Hello World!
+-------------------------------------------------------------------------------------------------
+Namespaces
+-----------------------
+# create namespace using imperative method
+
+kubectl create namespace nginx
+kubectl get namespaces 
+or 
+kubectl get ns
+
+# create namespace using config yaml) file
+==================================
+vi namespace.yml
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: prod1
+
+
+
+kubectl api-resources | grep namesapce
+
+kubectl apply -f namespace.yml
+
+kubectl get ns
+
+kubectl get all
+
+
+# create resource in the specific namespaces
+
+vi namespace-pod.yml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-pod1
+  namespace: prod1
+  labels:
+    team: integrations
+    app: todo
+spec:
+  containers:
+    - name: nginx-container
+      image: nginx:latest
+      ports:
+        - containerPort: 80
+
+kubectl apply -f namespace-pod.yml
+
+kubeclt get pod -n prod1
+
+kebectl get all (get all the resources from the default namespaces)
+
+kebectl get all -n prod1
+
+kebectl get all --all-namespaces  (get all resources from all the name sapces)
+
+or 
+kubectl get all -A
+
+
+# do-it-yourself: create deployment in the test namesspace
+
+# set the default namespace as nginx
+
+kubectl config set-contex --current --namespace=nginx
+
+kubectl get all (get all the resources from the nginx )
+
+Lab 8: Resource Quotas in Kubernetes
+-------------------------------------------------
+Task 1: Creating a Namespace
+-------------------------------------------------
+kubectl create namespace quotas
+kubectl get ns
+kubectl describe ns quotas
+-------------------------------------------------
+Task 2: Creating a resourcequota
+-------------------------------------------------
+vi rq-quotas.yaml
+
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: quota
+  namespace: quotas
+spec:
+  hard:
+    requests.cpu: "1"
+    requests.memory: 1Gi
+    limits.cpu: "2"
+    limits.memory: 2Gi
+
+kubectl create -f rq-quotas.yaml
+kubectl describe ns quota
+
+
+------------------------------------------------
+Task 3: Verify resourcequota Functionality
+-------------------------------------------------
+vi rq-pod.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: quota-pod
+  namespace: quotas
+spec:
+  containers:
+  - name: quota-ctr
+    image: nginx
+    resources:
+      limits:
+        memory: "800Mi"
+        cpu: "1000m"
+      requests:
+        memory: "600Mi"
+        cpu: "350m"
+    ports:
+      - containerPort: 80
+	  
+kubectl create -f rq-pod.yaml
+kubectl describe ns quota
+kubectl get quota -n quotas -o yaml
+
+-------------------------------------------------
+Task 4: Limiting Number of Pods
+-------------------------------------------------
+kubectl edit resourcequotas quota -n quotas
+add following lines in spec: > hard:
+count/deployments.apps: 2
+count/replicasets.apps: 3
+
+-------------------------------------------------
+Task 5: Clean-up
+-------------------------------------------------
+#Delete the quota to clean up.
+kubectl delete ns quotas
+------------------------
+Lab:HPA
+-----------------------
+
+vi deployment.yaml 
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: utility-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: utility-api
+  template:
+    metadata:
+      name: utility-api-pod
+      labels:
+        app: utility-api
+    spec:
+      containers:
+        - name: utility-api
+          image: k8s.gcr.io/nginx-slim:0.8
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              memory: 20Mi
+              cpu: "0.25"
+            limits:
+              memory: 400Mi
+              cpu: "1"
+
+vi service.yml 
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: utility-api-service
+spec:
+  selector:
+    app: utility-api
+  ports:
+    - port: 80
+      targetPort: 80
+
+vi  hpa.yml 
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: utility-api
+spec:
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - resource:
+        name: cpu
+        target:
+          averageUtilization: 50
+          type: Utilization
+      type: Resource
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: utility-api
+
+vi  trafic-gen.yml 
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: traffic-generator
+spec:
+  containers:
+  - name: alpine
+    image: alpine
+    args:
+    - sleep
+    - "100000000"
+
+
+kubectl exec -it traffic-generator -- sh
+
+apk add wrk
+
+wrk -c 5 -t 5 -d 300s -H "Connection: Close" http://utility-api-service:80/api/stress
+
+exit
+
+
+# -c=connection
+-t = thread
+-d = duration 
+
+kubectl top pods
+kubectl get hpa
+==================================================
+Statefulset
+--------------------------------------------------
+
+
+vi  nginx-sts.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-svc
+  labels:
+    app: nginx-svc
+spec:
+  ports:
+  - port: 80
+    name: web
+  clusterIP: None  # headless service 
+  selector:
+    app: nginx-sts
+
+---
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: nginx-sts
+spec:
+  serviceName: nginx-svc
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx-sts
+  template:
+    metadata:
+      labels:
+        app: nginx-sts
+    spec:
+      containers:
+      - name: nginx
+        image: k8s.gcr.io/nginx-slim:0.8
+        ports:
+        - containerPort: 80
+          name: web
+        volumeMounts:
+        - name: www
+          mountPath: /usr/share/nginx/html
+  volumeClaimTemplates:
+  - metadata:
+      name: www
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
+
+
+#Create a Stateful Set by applying the yaml
+
+kubectl apply -f nginx-sts.yaml
+
+The access modes are:
+
+ReadWriteOnce -- the volume can be mounted as read-write by a single node
+ReadOnlyMany -- the volume can be mounted read-only by many nodes
+ReadWriteMany -- the volume can be mounted as read-write by many nodes
+ReadWriteOncePod (RWOP) --the volume can be mounted as read-write by a single Pod. 
+
+==========================================================
+
+static pod
+
+-----------------------------------------------------
+
+vi static-web.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: static-web
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+
+
+kubectl apply -f static-web.yaml
+
+
+kubectl get pods
+
+
+copy the pod YAML to the folder designated for static pod's YAML files, complete the following steps:
+Locate the folder on the Kubernetes node that contains the static pod's YAML files, typically /etc/kubernetes/manifests/.
+cat /var/lib/kubelet/config.yaml
+Copy the static-web.yaml file into the folder using the command:
+
+sudo cp static-web.yaml /etc/kubernetes/manifests/
+
+kubectl get pods -o wide
+
+
 
