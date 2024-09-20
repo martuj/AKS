@@ -1107,6 +1107,8 @@ kubectl get all -A
 
 kubectl config set-contex --current --namespace=nginx
 
+kubectl config get-contexts
+
 kubectl get all (get all the resources from the nginx )
 
 Lab 8: Resource Quotas in Kubernetes
