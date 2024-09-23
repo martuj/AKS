@@ -1346,9 +1346,9 @@ ReadWriteMany -- the volume can be mounted as read-write by many nodes
 ReadWriteOncePod (RWOP) --the volume can be mounted as read-write by a single Pod. 
 
 ==========================================================
-
-static pod
-
+Week-2
+===========================================================
+static pod 
 -----------------------------------------------------
 
 vi static-web.yaml
@@ -1377,6 +1377,520 @@ Copy the static-web.yaml file into the folder using the command:
 sudo cp static-web.yaml /etc/kubernetes/manifests/
 
 kubectl get pods -o wide
+
+Lab 7: ConfigMap
+
+Task 1: Setting container environment variables using configmap
+-----------------------------------------------------------------
+
+imperative way to create config-map in environment variables:
+
+kubectl create configmap my-configmap --from-literal mydata=hello_world --dry-run=client -o yaml
+
+vi config-map.yaml
+
+apiVersion: v1
+data:
+  mydata: hello_world
+kind: ConfigMap
+metadata:
+  name: my-configmap
+
+kubectl create -f config-map.yaml
+ kubectl get configmaps
+
+
+vi cm-pod.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cm-pod
+spec:
+  containers:
+  - name: quota-ctr
+    image: nginx:latest
+    ports:
+    - containerPort: 80
+    env:
+    - name: hlo
+      valueFrom:
+        configMapKeyRef:
+           name: my-configmap
+           key: mydata
+		   
+kubectl exec -it cm-pod -- bash
+echo $hlo
+hello_world
+exit
+
+----------------------------------------------------------------
+
+Task 2: Setting configuration file with volume using ConfigMap
+----------------------------------------------------------------
+vi redis-cm.yaml
+ 
+apiVersion: v1
+data:
+  redis-config: |
+    maxmemory 2mb
+    maxmemory-policy allkeys-lru
+kind: ConfigMap
+metadata:
+  name: example-redis-config
+  namespace: default
+
+kubectl create -f redis-cm.yaml 
+kubectl get cm
+kubectl describe cm example-redis-config 
+
+Create pod
+
+vi redis-pod.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: redis
+spec:
+  containers:
+  - name: redis
+    image: redis
+    env:
+    - name: MASTER
+      value: "true"
+    ports:
+    - containerPort: 6379
+    volumeMounts:
+    - mountPath: /redis-master-data
+      name: data
+    - mountPath: /redis-master
+      name: config
+  volumes:
+    - name: data
+      emptyDir: {}
+    - name: config
+      configMap:
+        name: example-redis-config
+        items:
+        - key: redis-config
+          path: redis.conf
+
+kubectl create -f redis-pod.yaml
+read config map's file 
+kubectl exec -it redis cat /redis-master/redis.conf
+
+-------------------------------------------------------------------------------
+Task 3: Creating a Secret
+-------------------------------------------------------------------------------
+vi secrets.yaml
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql-credentials
+type: Opaque
+data:
+  ##all below values are base64 encoded
+  ##rootpw is root
+  ##user is user
+  ##password is mypwd
+  rootpw: cm9vdAo=
+  user: dXNlcgo=
+  password: bXlwd2QK
+  
+kubectl create -f secrets.yaml
+kubectl get secrets
+kubectl describe secrets mysql-credentials
+see your encoded secrets 
+kubectl get secrets mysql-credentials -o yaml
+
+Task: 4 create pod with secret
+
+vi secret-pod.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: secret-pod
+spec:
+  containers:
+  - name: quota-ctr
+    image: nginx:latest
+    ports:
+    - containerPort: 80
+    envFrom:
+    - secretRef:
+        name: mysql-credentials
+
+kubectl create -f secret-pod.yaml
+
+kubectl get pods
+
+To check created secrets
+kubectl get secret
+
+To describe a secret
+kubectl describe secret <secret-name>
+
+To decode the encrypted data
+echo "<data>" | base64 -d
+
+
+Lab 9: Pod and Container level security using Context
+---------------------------------------------------------
+Task 1: Set the security context for a pod
+---------------------------------------------------
+File 1: sc-demo-1.yaml
+This YAML file demonstrates the implementation of security context at the pod level.
+
+vi sc-demo-1.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: security-context-demo
+spec:
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 3000
+    fsGroup: 2000
+  volumes:
+  - name: demo-vol
+    emptyDir: {}
+  containers:
+  - name: sc-demo
+    image: busybox:1.28
+    command: [ "sh", "-c", "sleep 1h" ]
+    volumeMounts:
+    - name: demo-vol
+      mountPath: /data/demo
+
+To apply this file, use the following command:
+kubectl apply -f sc-demo-1.yaml
+
+To access the shell inside the pod, run the following command:
+kubectl exec -it security-context-demo -- /bin/sh
+
+
+To check the user ID, group ID, and filesystem ID, run the following commands:
+id
+ps aux
+
+The id command displays the user ID and group ID of the current user running inside the pod. 
+The ps aux command shows the processes running inside the pod along with their details.
+
+Since a volume is mounted, you can navigate to the mounted directory and perform file operations:
+cd /data/demo
+echo hello devopspro >> myfile
+ls -l
+
+---------------------------------------------------
+Task 2: Set the security context for a container
+---------------------------------------------------
+
+File 2: sc-demo-2.yaml
+This YAML file demonstrates the implementation of security context at both the pod and container level.
+
+vi sc-demo-2.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: security-context-demo-2
+spec:
+  securityContext:
+    runAsUser: 1000
+  containers:
+  - name: sc-demo-2
+    image: gcr.io/google-samples/node-hello:1.0
+    securityContext:
+      runAsUser: 2000
+
+To apply this file, use the following command:
+kubectl apply -f sc-demo-2.yaml
+
+To access the shell inside the pod, run the following command:
+kubectl exec -it security-context-demo-2 -- /bin/sh
+
+To check the applied security context on the container, run the following commands:
+ps aux
+id
+
+
+---------------------------------------------------
+Task 3: Set the security context for a container
+---------------------------------------------------
+File 3: sc-demo-3.yaml
+This YAML file demonstrates the addition of the NET_ADMIN capability to a container.
+
+vi sc-demo-3.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: security-context-demo-3
+spec:
+  containers:
+  - name: sc-demo-3
+    image: ubuntu
+    command: [ "sh", "-c", "sleep 1h" ]
+    securityContext:
+      capabilities:
+        add: ["NET_ADMIN"]
+
+To apply this file, use the following command:
+kubectl apply -f sc-demo-3.yaml
+
+To access the shell inside the pod, run the following command:
+kubectl exec -it security-context-demo-3 -- /bin/bash
+
+
+To install the required package, run the following commands inside the pod:
+apt update
+apt install iproute2
+
+#iptoute2 provides advanced IP routing and network devices configuration.
+
+To check the network interfaces, run the following command:
+ip link show
+
+To add an IP address to the eth0 network interface, use the following command:
+ip addr add 192.168.0.10/24 dev eth0
+
+To check the added IP address, run the following command:
+ip addr show eth0
+
+Lab 11: RBAC 
+=================
+The role.yaml file contains the configuration for creating a role named pod-reader. 
+The role allows the user to perform actions like get, watch, and list on pods resources.
+
+vi role.yaml 
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: default
+  name: pod-reader
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "watch", "list"]
+
+To apply this role:
+kubectl apply -f role.yaml
+To check the created role:
+kubectl get role
+
+Role Binding
+-----------
+The rolebinding.yaml file defines a role binding named read-pods
+that binds the pod-reader role to the user jack in the default namespace.
+
+vi rolebinding.yaml
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: read-pods
+  namespace: default
+subjects:
+- kind: User
+  name: jack
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: pod-reader
+  apiGroup: rbac.authorization.k8s.io
+
+To apply this role binding:
+kubectl apply -f rolebinding.yaml
+To check the created role binding:
+kubectl get rolebinding
+To check the permissions of the jack user:
+kubectl auth can-i get pod --as jack
+
+
+==========================================================
+Cluster Role
+==========================================================
+The clusterrole.yaml file contains the configuration for creating a cluster role named secret-reader. 
+This cluster role allows the user to perform actions like get, watch, and list on secrets resources.
+
+vi clusterrole.yaml
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: secret-reader
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "watch", "list"]
+
+To apply this cluster role:
+kubectl apply -f clusterrole.yaml
+To check the created cluster role:
+kubectl get clusterrole | grep secret-reader
+
+Cluster Role Binding
+=====================
+The clusterrolebinding.yaml file contains the configuration for creating a cluster role binding named read-secrets-global. 
+This cluster role binding binds the secret-reader cluster role to the user riya globally.
+
+vi clusterrolebinding.yaml
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: read-secrets-global
+subjects:
+- kind: User
+  name: riya
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: secret-reader
+  apiGroup: rbac.authorization.k8s.io
+
+To apply this cluster role binding:
+kubectl apply -f clusterrolebinding.yaml
+
+To check the created cluster role binding:
+kubectl get clusterrolebinding | grep read-secrets-global
+
+To check the permissions of the riya user across all namespaces:
+kubectl auth can-i get secret --as riya -A
+
+==================================================================================
+==================================================================================
+Setting Up Your Service Account
+====================================================================================
+To create a Service Account, use the following commands:
+kubectl create sa mysa
+
+To create a token for the Service Account "mysa" :
+kubectl create token mysa
+
+Defining Permissions with Roles
+
+
+vi sarole.yaml
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: default
+  name: pod-reader
+rules:
+- apiGroups:
+  - ''
+  resources:
+  - pods
+  verbs:
+  - get
+  - watch
+  - list
+
+kubectl apply -f sarole.yaml 
+
+To associate the Role with the Service Account, create a RoleBinding. 
+
+vi mysa.yml
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations:
+    kubernetes.io/enforce-mountable-secrets: "true"
+  name: mysa
+  namespace: default
+
+kubectl aaply -f mysa
+kubectl get sa
+
+vi sarolebinding.yaml
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: read-pods
+  namespace: default
+subjects:
+- kind: ServiceAccount
+  name: mysa
+  namespace: default
+roleRef:
+  kind: Role
+  name: pod-reader
+  apiGroup: rbac.authorization.k8s.io
+
+kubectl apply -f sarolebinding.yaml 
+
+
+Pod definition with the appropriate serviceAccountName. 
+
+vi podattach.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+spec:
+  serviceAccountName: mysa
+  containers:
+  - name: nginx
+    image: nginx:1.14.2
+    ports:
+    - containerPort: 80
+
+kubectl apply -f podattach.yaml 
+
+
+Ensuring Access: Verifying Permissions
+
+To verify the access permissions of the Service Account, use the following command:
+kubectl describe pod nginx
+kubectl auth can-i get pods --as=system:serviceaccount:default:mysa
+
+=====================================================================================
+: RBAC (Self)
+--------------------------------------------------------------------
+Task 1: Create a new ServiceAccount demo-sa
+---------------------------------------------------------------------
+kubectl get ns
+kubectl create ns purple
+kubectl create sa -n purple demo-sa 
+kubectl get ns
+
+---------------------------------------------------------------------
+Task 2: Create a new Role and RoleBinding 
+---------------------------------------------------------------------
+kubectl create role demo-role --verb=list --resource=pods -n purple
+kubectl create rolebinding demo-rb --role=demo-role --serviceaccount=purple:demo-sa -n purple
+
+---------------------------------------------------------------------
+Task 3: Test whether you are able to do a GET request to Kubernetes API 
+---------------------------------------------------------------------
+kubectl run test --image=nginx -n purple
+kubectl exec -it -n purple test -- /bin/bash 
+curl -v --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" https://kubernetes.default/api/v1/namespaces/purple/pods 
+
+vi pod-sa.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-01
+  namespace: purple
+spec:
+  serviceAccountName: demo-sa
+  containers:
+  - name: my-container
+    image: nginx
+
+kubectl exec -it -n purple test-01 -- /bin/bash 
+curl -v --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" https://kubernetes.default/api/v1/namespaces/purple/pods 
 
 
 
