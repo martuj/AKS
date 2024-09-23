@@ -1478,7 +1478,7 @@ spec:
 
 kubectl create -f redis-pod.yaml
 read config map's file 
-kubectl exec -it redis cat /redis-master/redis.conf
+ kubectl exec redis -- cat /redis-master/redis.conf
 
 -------------------------------------------------------------------------------
 Task 3: Creating a Secret
