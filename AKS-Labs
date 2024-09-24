@@ -1892,5 +1892,390 @@ spec:
 kubectl exec -it -n purple test-01 -- /bin/bash 
 curl -v --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" https://kubernetes.default/api/v1/namespaces/purple/pods 
 
+============================================================
 
+Lab 10: Kubernetes Network Policy
+
+--------------------------------------------------
+Task 1: Network policy with Pod labels
+--------------------------------------------------
+#Create a nginx pod and service with labels role=backend
+
+kubectl run backend --image nginx -l role=backend
+kubectl expose po backend --port 80 
+
+kubectl get pod
+kubectl get svc
+
+#Create a new busybox pod and verify that it can access the backend service.
+Then, exit out of the container
+
+kubectl run --rm -it --image=busybox net-policy 
+wget -qO- -T3 http://backend
+exit
+
+#Create a network policy which uses labels to deny all ingress traffic
+
+vi np-deny-all.yml
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-policy
+spec:
+  podSelector:
+    matchLabels:
+      role: backend
+  ingress: []
+
+kubectl create -f np-deny-all.yml
+kubectl get networkpolicies
+
+#Create a new busybox pod again and verify that it cannot access the backend service
+
+kubectl run --rm -it --image=busybox net-policy
+wget -qO- -T3 http://backend
+it will show timeout
+exit
+
+#Modify the network policy to allow traffic with matching Pod labels 
+Inspect the network policy and notice the selectors
+
+vi np-pod-label-allow.yml
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-policy
+spec:
+  podSelector:
+    matchLabels:
+      role: backend
+  ingress:
+  - from:
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          role: frontend
+		  
+
+#before applying this yaml describe networkpolicies to check rule
+kubectl apply -f np-pod-label-allow.yml
+kubectl describe networkpolicies backend-policy
+
+kubectl apply -f np-pod-label-allow.yml
+
+kubectl describe networkpolicies backend-policy
+
+#Run the busybox pod again and verify that it is able to access backend service.
+Notice the labels on the Pod. Inspect the network policy and notice the selectors
+
+kubectl run --rm -it --image=busybox --labels role=frontend net-policy
+wget -qO- -T3 http://backend
+exit
+#Run the busybox pod again without labels and notice that the backend service is not accessible any more.
+
+kubectl run --rm -it --image=busybox net-policy 
+wget -qO- -T3 http://backend
+exit
+
+
+--------------------------------------------------------
+Task 2: Using WordPress and MySQL as Deployments(skip)
+--------------------------------------------------------
+kubectl create ns networkdemo 
+
+kubectl create -f https://s3.ap-south-1.amazonaws.com/files.cloudthat.training/devops/kubernetes-cka/mysql_deploy.yaml -n networkdemo
+
+
+kubectl create -f https://s3.ap-south-1.amazonaws.com/files.cloudthat.training/devops/kubernetes-cka/wordpress_deploy.yaml -n networkdemo
+
+kubectl get pod,svc -n networkdemo 
+
+vim deny-all.yaml 
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: networkdemo
+spec:
+  podSelector:
+    matchLabels: {}
+  policyTypes:
+  - Ingress
+
+kubectl apply -f deny-all.yaml -n networkdemo
+
+==================================================================================
+Lab 12: Node Labelling and Constraining pods in Kubernetes
+
+---------------------------------------------------------------------
+Task 1: Deploy pod in specific node based on node-name / hostname
+---------------------------------------------------------------------
+
+vi node-name.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-nodename
+  labels:
+    env: test
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    imagePullPolicy: IfNotPresent
+  nodeName: {node-name / hostname }
+
+kubectl create -f node-name.yaml
+kubectl get pods -o wide 
+see your pod in defined node
+ 
+---------------------------------------------------------------------
+Task 1.1: Node labeling and constraining pods
+---------------------------------------------------------------------
+list node labels
+kubectl get nodes --show-labels
+
+kubectl label nodes <node_name> disktype=ssd
+
+list you nodes to check labels 
+kubectl get nodes --show-labels | grep "disktype=ssd"
+
+vi nlns-pod.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nlns-nginx-pod
+  labels:
+    env: test
+spec:
+  containers:
+  - name: nlns-nginx-ctr
+    image: nginx
+  nodeSelector:
+    disktype: ssd
+
+
+kubectl apply -f nlns-pod.yaml
+kubectl get pods -o wide
+
+---------------------------------------------------------------------
+Task 2: Cleanup
+---------------------------------------------------------------------
+#Delete the objects created in this lab.
+
+kubectl delete -f nlns-pod.yaml 
+kubectl label nodes <node_name> disktype-
+ 
+#Verify that the label is deleted.
+
+kubectl get nodes --show-labels | grep ssd 
+
+Taint and Toleration
+--------------------------
+Taint a node with the Noschedule taint effect and set the key-value pair 
+
+Use the following command to apply the taint to the desired node:
+
+kubectl taint nodes <node_name> key1=value1:NoSchedule
+
+kubectl describe node node01
+
+Create a pod and check the node on which it is scheduled.
+
+kubectl run test --image=nginx
+kubectl get pod
+kubectl get pod -o wide
+
+Create a pod and add a toleration to it with the following specifications:
+Key: key1
+Operator: Equal
+Value: value1
+Effect: Noschedule
+
+Use the following YAML definition to create the pod with the toleration:
+
+vi taintpod.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mypod1
+spec:
+  containers:
+  - name: mycontainer
+    image: nginx
+  tolerations:
+   - key: run
+     operator: Equal
+     value: mypod
+     effect: NoSchedule
+
+Remove the taint effect from the node that was previously tainted.
+
+kubectl taint nodes <node_name> key1=value1:NoSchedule-
+
+====================================================================================
+Lab 13: Advanced Pod Scheduling
+
+---------------------------------------------------------------------
+Task 1: Node Affinity
+---------------------------------------------------------------------
+vi node-aff-pref.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: na-nginx-pod1
+spec:
+  containers:
+  - name: na-nginx-ctr1
+    image: nginx
+  affinity:
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 1
+        preference:
+          matchExpressions:
+          - key: disktype
+            operator: In
+            values:
+            - ssd
+
+kubectl apply -f node-aff-pref.yaml
+kubectl get pods -o wide
+
+Remove node label 
+
+kubectl label nodes <node_name> disktype-
+deploy same pod again it is getting deployed
+
+Task 2: required during scheduling
+
+remove label first 
+kubectl label nodes <node_name> disktype-
+
+
+vi aff-na-pod2.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: na-nginx-pod2
+spec:
+  containers:
+  - name: na-nginx-ctr2
+    image: nginx
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: disktype
+            operator: In
+            values:
+            - ssd
+
+kubectl create -f aff-na-pod2.yaml
+
+pod is strictly looking for labeled node
+
+kubectl get pods -o wide
+kubectl label nodes <node_name> disktype=ssd
+
+once label is added pod will deployed
+
+---------------------------------------------------------------------
+Task 2: Pod Affinity
+---------------------------------------------------------------------
+
+vi depend-pod.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pa-nginx-pod1
+  labels:
+    app: pa-nginx-app
+spec:
+  containers:
+  - name: pa-nginx-ctr1
+    image: nginx
+
+kubectl create -f depend-pod.yaml
+kubectl get pods
+
+---------------------------------------------------------------------
+Task 3: create pod with pod affinity
+---------------------------------------------------------------------
+vi aff-pa-pod2.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pa-nginx-pod2
+spec:
+  containers:
+  - name: pa-nginx-ctr2
+    image: nginx
+  affinity:
+    podAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+          - key: app
+            operator: In
+            values:
+            - pa-nginx-app
+        topologyKey: kubernetes.io/hostname
+
+kubectl create -f pod-affinity.yaml
+
+kubectl get pods -o wide
+both pod are in same node
+
+---------------------------------------------------------------------
+Task 4: pod anti affinity
+---------------------------------------------------------------------
+
+vi pod-antiaff.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - pa-nginx-app
+            topologyKey: "kubernetes.io/hostname"
+      containers:
+      - name: nginx
+        image: nginx
+
+kubectl create -f  pod-antiaff.yaml
+kubectl get pod -o wide 
+
+
+kubectl delete -f  pod-antiaff.yaml
+ 
 
