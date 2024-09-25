@@ -2471,3 +2471,97 @@ kubectl get pods
 
 helm uninstall mychart1
 
+Lab: 4  Create custom template
+=========================
+ 
+mkdir -p myapp1/charts && mkdir -p myapp1/templates
+ 
+cd myapp1
+ 
+vi Chart.yaml 
+apiVersion: v2
+name: mychart
+description: A Helm chart for Kubernetes
+type: application
+version: 0.1.0
+appVersion: "1.16.0"
+ 
+ 
+vi values.yaml 
+replicaCount: 1
+app:
+  name: myapp
+  image: nginx
+  ports:
+    containerPort: 80
+ 
+ 
+vi templates/deployment.yaml 
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "myapp.applabels" . | nindent 7 }}
+  template:
+    metadata:
+      labels:
+        {{- include "myapp.applabels" . | nindent 9 }}
+    spec:
+      containers:
+      - image: {{ .Values.app.image }}
+        name: {{ .Values.app.name }}
+        ports:
+        - containerPort: {{ .Values.app.ports.containerPort }}
+ 
+ 
+vi templates/service.yaml 
+apiVersion: v1
+kind: Service
+metadata:
+  name: myapp-svc
+spec:
+  selector:
+    app: myapp
+  ports:
+  - protocol: TCP
+    port: 80
+  type: NodePort
+ 
+ 
+ 
+vi templates/_helpers.tpl 
+{{- define "myapp.applabels" -}}
+app: myapp
+{{- end }}
+ 
+ 
+vi templates/NOTES.txt  
+Thank you for support {{ .Chart.Name }}.
+Your release is named {{ .Release.Name }}.
+ 
+To learn more about the release, try:
+ 
+   $ helm status {{ .Release.Name }}
+   $ helm get all {{ .Release.Name }}
+   $ helm uninstall {{ .Release.Name }}
+ 
+ 
+ 
+$ tree
+.
+|-- Chart.yaml
+|-- charts
+|-- templates
+|   |-- deployment.yaml
+|   `-- service.yaml
+`-- values.yaml
+ 
+#come out from dir
+cd 
+helm install mychart2 ./myapp1
+ 
+helm uninstall mychart2
