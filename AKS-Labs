@@ -2859,6 +2859,77 @@ spec:
       image: martujacrdemo.azurecr.io/nginx:v1
       imagePullPolicy: IfNotPresent
 
+================================================================
+cordon drain uncordon
+============================
+# check the pods on the nodes if no pods are running deploy some pods using deployment
+
+kubectl get po -o wide
+
+vi dep-nginx.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-dep
+  labels:
+    app: nginx-dep
+spec:
+  replicas: 3
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: nginx-app
+  template:
+    metadata:
+      labels:
+        app: nginx-app
+    spec:
+      containers:
+      - name: nginx-ctr
+        image: nginx:1.11
+        ports:
+        - containerPort: 80
+
+
+save the file
+
+kubectl apply -f dep-nginx.yaml 
+
+kubectl get po -o wide
+
+kubectl cordon <hostname> # where pods are running
+
+# now check the sattus of the node its disabled the scheduling
+
+kubectl get no
+
+# but still pods are running on the same node . you can't create new pods 
+
+kubectl get po - o wide
+
+# run the drain command to move the pod to another node
+
+kubectl drain <node name> --ignore-daemonsets
+
+# check the pod status , now pods are moved and running on another node 
+
+kubectl get po -o wide
+
+# now enable the node ad schedule 
+
+kubeclt uncordon <node name>
+
+# check the node status now you can schedule pod
+
+kubectl  get no
+
+# create some pod and check it
+
+kubectl get po -o wide
+
+
 
 
 
