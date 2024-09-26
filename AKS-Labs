@@ -2759,6 +2759,24 @@ skip the below command now if you add rule then you the following command,not no
 ---------------------------------------------
 # promtool check rules /etc/prometheus/prometheus.rules.yml
 
+Prometheus-Query
+-----------------------
+up
+go_info
+node_uname_info
+node_boot_time_seconds
+node_cpu_seconds_total
+node_disk_info
+node_exporter_build_info
+node_memory_MemAvailable_bytes
+node_memory_MemFree_bytes
+node_filesystem_avail_bytes
+prometheus_build_info
+prometheus_http_requests_total
+scrape_duration_seconds
+node_cpu_seconds_total{instance="3.90.61.234:9100"}[5m]
+node_memory_MemFree_bytes / node_memory_MemTotal_bytes
+
 
 
 
