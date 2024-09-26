@@ -2608,6 +2608,158 @@ you can see now the webpage of Prometheus
 go to terminal presss
 ctrl+c to stop the premetheus
 
+Lab:2
+-------------
+
+create prometheus service
+------------------------------
+
+copy all the file form /home/ubuntu/prometheus-2.39.1.linux-amd64
+------------------------------------------------------
+#ls 		-you can see all the prometheus files
+
+# sudo cp -r .   /usr/local/bin/prometheus
+
+then create service file and copy the content given below
+----------------------------------------------------------
+# sudo vi /etc/systemd/system/prometheus.service
+
+[Unit]
+Description=Prometheus Service
+After=network.target
+
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/prometheus/prometheus --config.file=/usr/local/bin/prometheus/prometheus.yml
+
+[Install]
+WantedBy=multi-user.target
+
+
+save the file
+
+now start the service
+--------------
+# sudo systemctl daemon-reload
+
+# sudo systemctl start  prometheus
+
+# sudo systemctl enable  prometheus
+# sudo systemctl status  prometheus
+
+press q to exit from the service window
+
+now got browser and refresh the page or go to browser and take the public ip of instance and port no
+
+example:
+http://43.204.149.136:9090/
+
+-you can see now page.in the search type up command and click on execute 
+
+-similar way type go_info command and click on execute  	
+
+
+time series database (tsdb) status
+
+
+Lab:3: Install Node Exporter
+----------------------------
+
+download node exporter
+----------------------
+# cd
+# wget https://github.com/prometheus/node_exporter/releases/download/v1.4.0/node_exporter-1.4.0.linux-amd64.tar.gz
+
+extract the file
+---------------------
+# tar -xvzf node_exporter-1.4.0.linux-amd64.tar.gz
+# ls
+
+copy the file to bin
+----------------------------
+# sudo cp node_exporter-1.4.0.linux-amd64/node_exporter /usr/local/bin
+
+verify the files are copied 
+---------------------------
+# ls /usr/local/bin/
+
+
+create service file for node exporter and copy the given below content
+----------------------------------------------
+# sudo vi /etc/systemd/system/node-exporter.service
+
+
+[Unit]
+Description=Prometheus Node Exporter Service
+After=network.target
+
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/node_exporter
+
+[Install]
+WantedBy=multi-user.target
+
+save the file
+
+reload the service
+---------------
+# sudo systemctl daemon-reload
+# sudo systemctl start node-exporter.service
+# sudo systemctl enable node-exporter.service
+# sudo systemctl status node-exporter.service
+press q to exit from the service window
+
+
+now go to browser and check you can able to access node exporter port no=9100
+-------------------------------------------
+
+http://43.204.149.136:9100/
+
+click on metrics --now you can see the metrics os the prometheus-server
+
+Lab:5: Configure prometheus configuration file.
+-------------------------------------------
+Go to prometheus server and configure prometheus yml file go to
+
+
+# cd /home/ubuntu/prometheus-2.39.1.linux-amd64
+# cd /usr/local/bin/prometheus/
+
+# ls
+# sudo vi prometheus.yml
+
+at the end of the file add the job as following make sure indentation should be same
+----------------------------------------------------------------------------------
+        
+- job_name: "node_exporter"
+
+    # metrics_path defaults to '/metrics'
+    # scheme defaults to 'http'.
+
+    static_configs:
+      - targets: ["localhost:9100"]
+
+
+
+save the file 
+
+restart the prometheus service
+---------------------------
+# sudo systemctl restart  prometheus
+
+check for syntax validatation
+-----------------------------
+# sudo apt  install prometheus -y
+# promtool check config prometheus.yml
+
+skip the below command now if you add rule then you the following command,not now
+---------------------------------------------
+# promtool check rules /etc/prometheus/prometheus.rules.yml
+
+
 
 
 
