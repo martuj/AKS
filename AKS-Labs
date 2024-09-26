@@ -2777,6 +2777,43 @@ scrape_duration_seconds
 node_cpu_seconds_total{instance="3.90.61.234:9100"}[5m]
 node_memory_MemFree_bytes / node_memory_MemTotal_bytes
 
+Grafana
+---------------------
+To install the latest Enterprise edition:
+==============================================
+sudo su -
+hostnamectl set-hostname Grafana
+bash
+ 
+sudo apt-get install -y apt-transport-https software-properties-common wget
+sudo mkdir -p /etc/apt/keyrings/
+wget -q -O - https://apt.grafana.com/gpg.key | gpg --dearmor | sudo tee /etc/apt/keyrings/grafana.gpg > /dev/null
+echo "deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://apt.grafana.com stable main" | sudo tee -a /etc/apt/sources.list.d/grafana.list
+echo "deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://apt.grafana.com beta main" | sudo tee -a /etc/apt/sources.list.d/grafana.list
+# Updates the list of available packages
+sudo apt-get update
+# Installs the latest OSS release:
+sudo apt-get install Grafana
+# Installs the latest Enterprise release:
+sudo apt-get install grafana-enterprise
+
+type Y - to install
+
+Start the server with systemd
+-------------------------
+sudo systemctl daemon-reload
+sudo systemctl start grafana-server
+sudo systemctl status grafana-server
+sudo systemctl enable grafana-server.service
+
+
+Now go to browser and use public ip of instance to access the Grafana webpage
+ex:- http://174.129.136.156:3000
+
+It will ask user name and passwrod
+
+default user name and password is admin
+also ask for set new password if you want you can skip it.
 
 
 
