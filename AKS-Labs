@@ -2565,3 +2565,50 @@ cd
 helm install mychart2 ./myapp1
  
 helm uninstall mychart2
+
+=====================================================================
+Prometheus and Grafana
+======================================================================
+- set hostname and install wget and unzip command
+---------------------------------------------------
+# sudo apt update -y
+# sudo apt install wget unzip -y
+# sudo hostnamectl  set-hostname Prometheus-server
+# bash
+
+donwload the prometheus
+---------------------------
+# wget https://github.com/prometheus/prometheus/releases/download/v2.39.1/prometheus-2.39.1.linux-amd64.tar.gz
+
+# New version
+wget https://github.com/prometheus/prometheus/releases/download/v2.53.2/prometheus-2.53.2.linux-amd64.tar.gz
+
+unzip the link
+----------------------
+
+#tar -xvzf prometheus-2.39.1.linux-amd64.tar.gz
+
+verify the file and run the prometheus
+------------------------------------
+#ls
+#cd prometheus-2.39.1.linux-amd64/
+#ls
+#./prometheus
+
+now prometheus is running 
+Add port in the inbound role 
+
+go to browser and take the public ip of instance and port no 9090
+
+example:
+http://43.204.149.136:9090/
+
+you can see now the webpage of Prometheus
+
+go to terminal presss
+ctrl+c to stop the premetheus
+
+
+
+
+
